@@ -11,7 +11,53 @@ from typing import List, Set
 MIN_PORT = 1
 MAX_PORT = 65535
 
-def parse_port_spec(spec: str) -> List[int]:
+def syn_scan_ports(host: str, ports: List[int], timeout: float = 1.0) -> Set[int]:
+    """
+    Perform a SYN scan on `host` for the list of `ports`.
+    Returns a set of ports that responded with SYN-ACK (considered open).
+    Requires root and scapy.
+    """
+    try:
+        from scapy.all import IP, TCP, sr1, send  # local import so script can be imported without scapy
+    except Exception as e:
+        raise RuntimeError("Scapy is required for syn_scan_ports. Install with: sudo pip3 install scapy") from e
+
+    open_ports: Set[int] = set()
+
+    for port in ports:
+        pkt = IP(dst=host) / TCP(dport=port, flags="S")
+        try:
+            resp = sr1(pkt, timeout=timeout, verbose=0)
+        except PermissionError as e:
+            raise PermissionError("Raw sockets require root privileges. Run the script with sudo.") from e
+        except Exception:
+            resp = None
+
+        if resp is None:
+            # no reply -> treat as closed/filtered
+            continue
+
+        # If response has TCP layer, inspect flags
+        if resp.haslayer(TCP):
+            rflags = resp.getlayer(TCP).flags
+            # check for SYN-ACK (S + A). numeric mask 0x12
+            if int(rflags) & 0x12 == 0x12:
+                open_ports.add(port)
+                # send RST to avoid completing handshake
+                try:
+                    rst_pkt = IP(dst=host) / TCP(dport=port, flags="R")
+                    send(rst_pkt, verbose=0)
+                except Exception:
+                    pass
+            else:
+                # RST or other flags -> closed/filtered
+                continue
+        else:
+            continue
+
+    return open_ports
+
+def parse_port_spec(host: str, spec: str, timeout: float = 1.0) -> List[int]:
     """
     Parse a port specification like "1-1024, 8080" and return a sorted list
     of unique port integers. Accepts spaces around tokens.
@@ -64,7 +110,9 @@ def parse_port_spec(spec: str) -> List[int]:
             ports_set.add(p)
 
     # Sort and return
-    return sorted(ports_set)
+    sorted_ports = sorted(ports_set)
+    open_ports = syn_scan_ports(host, sorted_ports, timeout=timeout)
+    return open_ports
 
 
 # Small command-line example showing how to use the parser.
@@ -75,7 +123,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        ports = parse_port_spec(args.ports)
+        ports = parse_port_spec(args.host, args.ports)
     except Exception as e:
         parser.error(f"invalid port specification: {e}")
 
