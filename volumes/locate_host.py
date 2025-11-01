@@ -1,18 +1,4 @@
-# Define a function called locate_host. This will take iface (wlan0) and pkt (packet) parameters
-# Then try figure out whether the packet is a type Dot11 or not, if not return
-# If we have the right kind of packet, then let us start processing it. 
-# Loop through layers, first checking for the SSID and whether that is "CS60" and if it is not then skip, 
-# Otherwise, then let us strip this and find the RSSI
-
-# Have a main function that will require an iface and this will start a monitor_mode.sh script changing the channels after every short while
-# For each loop with a channel i, we sniff, then call the prn call back function, which can actually set whether we have a signal (RSSI) in a global boolean
-# If not we loop on to the next channel say every 10 seconds or so
-# Once I have found the room, I can print out the vendor specific info and see what the clue is about the channels
-# Then we can now switch the monitor mode to be at that specific channel
-# Then create the layer 2 packet Ether ()...., with my NetID, then receive a response and note the code received
-
-# Then document my flag: Room in ECSC and code received
-import subprocess
+import subprocess, re
 import time
 from scapy.all import sniff, RadioTap, Dot11, Dot11Elt, Dot11ProbeReq, get_if_hwaddr, sendp, Dot11Beacon, Raw, LLC, SNAP
 rssi = None
@@ -80,13 +66,16 @@ def process_packet(pkt):
     rssi = pkt[RadioTap].dBm_AntSignal
     ap_mac = pkt.addr2  # or pkt.addr3; beacons usually have addr2==addr3
 
-    # Example: parse channel from vendor_bytes if format known 
-    # if vendor_bytes and len(vendor_bytes) >= 1:
-    #     vendor_channel = vendor_bytes[0]
-
-    # For now we just print the vendor bytes' hex value
+    # We parse channel from vendor_bytes if format known (Used chatGPT to write the regEx matching script after first printing out the Vendor E Hex)
     if vendor_bytes:
-        print(f"Vendor IE: {vendor_bytes.hex()}")
+        try:
+            msg = vendor_bytes.decode("ascii", errors="ignore")
+            m = re.search(r'CHANNEL[_\s-]*(\d{1,2})', msg)
+            if m:
+                vendor_channel = int(m.group(1))  # e.g., 3
+                print(f"[+] Vendor hint: switch to channel {vendor_channel}")
+        except Exception:
+            pass
 
     found_channel = True
 
@@ -134,7 +123,7 @@ def retrieve_code(iface, netid: str):
     assert ap_mac, "AP MAC unknown; run locate_host() first"
     src = get_if_hwaddr(iface)
 
-    # Build L2 802.11 data frame (to DS=0, addr1=AP, addr2=STA, addr3=AP is fine for this lab setup)
+    # Build L2 802.11 data frame (to DS=0, addr1=AP, addr2=STA, addr3=AP)
     dot11 = Dot11(type=2, subtype=0, addr1=ap_mac, addr2=src, addr3=ap_mac)
     payload = Raw(netid.encode())
     frame = RadioTap()/dot11/LLC()/SNAP()/payload
@@ -155,7 +144,6 @@ def retrieve_code(iface, netid: str):
         raw = pkt.getlayer(Raw)
         if not raw:
             return False
-        # Course-specific; often plain ASCII code in payload
         try:
             text = raw.load.decode(errors="ignore").strip()
         except Exception:
@@ -190,11 +178,15 @@ def main():
 
     if flag:
         print("\n=== FLAG SUBMISSION ===")
-        print(f"Location: <fill in room # / spot you found>")
+        print(f"Location: ECSC 019")
         print(f"Code: {flag}")
         print("=======================\n")
 
-    restore_managed("wlan0")  # optional at the end
+    restore_managed("wlan0") 
+
+
+if __name__ == "__main__":
+    main()
 
 
 
