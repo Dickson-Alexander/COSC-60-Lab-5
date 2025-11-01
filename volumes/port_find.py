@@ -82,7 +82,7 @@ def run_port_scan_for_ips(
 if __name__ == "__main__":
     # Example usage:
     #input: ips_to_Scan should be the return of the ips available
-    ips_to_scan = ["172.17.0.1", "8.8.8.8"]
+    ips_to_scan = ["172.17.0.1"]
     results = run_port_scan_for_ips(ips_to_scan, timeout=30, max_workers=2)
     for ip, (rc, out, err, err_msg) in results.items():
         print(f"\n--- {ip} (rc={rc}) ---")
