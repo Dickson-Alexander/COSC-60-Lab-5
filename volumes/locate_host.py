@@ -144,12 +144,24 @@ def retrieve_code(iface, netid: str):
     return flag["value"]
 
 def main():
-    """
-    Calls the locate_host to locate the room, then retrieve_code to get the code from the Wifi AP's MAC
-    """
+    ""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--iface", default="wlan0", help="monitor-mode interface (e.g., wlan0)")
+    parser.add_argument("--netid", required=True, help="Your Dartmouth ID (e.g., f00abc3)")
+    args = parser.parse_args()
 
-    # Requires command line arguments with the iface (or just call it separately on a different terminal like before?)
+    print("[*] Scanning for CS60 beacons…")
+    locate_host(args.iface)
 
+    print("[*] Requesting code from AP…")
+    flag = retrieve_code(args.iface, args.netid)
+
+    if flag:
+        print("\n=== FLAG SUBMISSION ===")
+        print(f"Location: <fill in room # / spot you found>")
+        print(f"Code: {flag}")
+        print("=======================\n")
 
 
 
