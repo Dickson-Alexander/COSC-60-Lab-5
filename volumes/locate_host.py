@@ -1,0 +1,159 @@
+# Define a function called locate_host. This will take iface (wlan0) and pkt (packet) parameters
+# Then try figure out whether the packet is a type Dot11 or not, if not return
+# If we have the right kind of packet, then let us start processing it. 
+# Loop through layers, first checking for the SSID and whether that is "CS60" and if it is not then skip, 
+# Otherwise, then let us strip this and find the RSSI
+
+# Have a main function that will require an iface and this will start a monitor_mode.sh script changing the channels after every short while
+# For each loop with a channel i, we sniff, then call the prn call back function, which can actually set whether we have a signal (RSSI) in a global boolean
+# If not we loop on to the next channel say every 10 seconds or so
+# Once I have found the room, I can print out the vendor specific info and see what the clue is about the channels
+# Then we can now switch the monitor mode to be at that specific channel
+# Then create the layer 2 packet Ether ()...., with my NetID, then receive a response and note the code received
+
+# Then document my flag: Room in ECSC and code received
+import subprocess
+import time
+from scapy.all import sniff, RadioTap, Dot11, Dot11Elt, Dot11ProbeReq, get_if_hwaddr, sendp, Dot11Beacon, Raw, LLC, SNAP
+rssi = None
+found_channel = False
+vendor_channel = None
+ap_mac = None
+
+# --- helpers ----------------------------------------------------
+
+def set_channel(iface, ch: int):
+    """Set iface to channel ch (use iwconfig per lab hint)."""
+    subprocess.run(["sudo", "iwconfig", iface, "channel", str(ch)], check=False)
+
+    
+def process_packet(pkt):
+    global rssi, found_channel, vendor_channel, ap_mac
+
+    if not (pkt.haslayer(Dot11Beacon) and pkt.haslayer(RadioTap)):
+        return
+
+    # Parse SSID and Vendor IE
+    ssid = None
+    vendor_bytes = None
+    elt = pkt.getlayer(Dot11Elt)
+    while elt is not None:
+        if elt.ID == 0:  # SSID
+            ssid = elt.info.decode(errors="ignore")
+        elif elt.ID == 221:  # Vendor Specific IE
+            vendor_bytes = bytes(elt.info)
+        elt = elt.payload.getlayer(Dot11Elt)
+
+    if ssid != "CS60":
+        return
+
+    # Save RSSI and AP MAC (beacon's transmitter/BSSID)
+    rssi = pkt[RadioTap].dBm_AntSignal
+    ap_mac = pkt.addr2  # or pkt.addr3; beacons usually have addr2==addr3
+
+    # Example: parse channel from vendor_bytes if format known 
+    # if vendor_bytes and len(vendor_bytes) >= 1:
+    #     vendor_channel = vendor_bytes[0]
+
+    # For now we just print the vendor bytes' hex value
+    if vendor_bytes:
+        print(f"Vendor IE: {vendor_bytes.hex()}")
+
+    found_channel = True
+
+
+def stop_filter(pkt):
+    return found_channel
+    
+
+def locate_host(iface):
+    """
+    Hop channels 1..11 until we see CS60 beacons; track RSSI for room hunt.
+    If a Vendor IE hints a new channel, switch to it.
+    """
+    global rssi, found_channel, vendor_channel
+
+    channel = 1
+    while not found_channel:
+        set_channel(iface, channel)
+        # brief sniff; process_packet() sets found_channel & fills rssi/ap_mac
+        sniff(iface=iface, prn=process_packet, stop_filter=lambda _: found_channel, timeout=3.0, store=False)
+        if not found_channel:
+            channel = 1 if channel == 11 else channel + 1
+
+    print(f"[+] Found CS60 on channel {channel}, RSSI ≈ {rssi} dBm, AP={ap_mac}")
+
+    # Keep listening a bit to print RSSI for hallway room search
+    t0 = time.time()
+    while time.time() - t0 < 10:
+        sniff(iface=iface, prn=lambda p: (process_packet(p), print(f"RSSI: {rssi} dBm")) if rssi is not None else None,
+              timeout=1.0, store=False)
+
+    # If process_packet captured vendor bytes, parse channel hint
+    # You can stash vendor bytes globally there; here we just trust vendor_channel if set
+    if vendor_channel is not None:
+        set_channel(iface, vendor_channel)
+        print(f"[+] Switched to vendor-specified channel {vendor_channel}")
+
+
+
+def retrieve_code(iface, netid: str):
+    """
+    On the new channel, send a Layer-2 frame to the AP with your NetID.
+    Listen for a reply frame carrying your flag and return it.
+    """
+    assert ap_mac, "AP MAC unknown; run locate_host() first"
+    src = get_if_hwaddr(iface)
+
+    # Build L2 802.11 data frame (to DS=0, addr1=AP, addr2=STA, addr3=AP is fine for this lab setup)
+    dot11 = Dot11(type=2, subtype=0, addr1=ap_mac, addr2=src, addr3=ap_mac)
+    payload = Raw(netid.encode())
+    frame = RadioTap()/dot11/LLC()/SNAP()/payload
+
+    # Send a few times
+    for _ in range(5):
+        sendp(frame, iface=iface, verbose=False)
+        time.sleep(0.05)
+
+    flag = {"value": None}
+
+    def got_flag(pkt):
+        # Look for data frames from AP to us that carry a printable payload
+        if not pkt.haslayer(Dot11) or pkt.type != 2:
+            return False
+        if pkt.addr2 != ap_mac:
+            return False
+        raw = pkt.getlayer(Raw)
+        if not raw:
+            return False
+        # Course-specific; often plain ASCII code in payload
+        try:
+            text = raw.load.decode(errors="ignore").strip()
+        except Exception:
+            return False
+        if text and len(text) >= 3:
+            flag["value"] = text
+            return True
+        return False
+
+    sniff(iface=iface, stop_filter=got_flag, timeout=3.0, store=False)
+    if flag["value"]:
+        print(f"[+] Received flag: {flag['value']}")
+    else:
+        print("[!] No flag seen; try re-sending a few more times or adjust filters.")
+    return flag["value"]
+
+def main():
+    """
+    Calls the locate_host to locate the room, then retrieve_code to get the code from the Wifi AP's MAC
+    """
+
+    # Requires command line arguments with the iface (or just call it separately on a different terminal like before?)
+
+
+
+
+
+    
+
+          
