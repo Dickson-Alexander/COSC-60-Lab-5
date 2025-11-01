@@ -62,9 +62,7 @@ if __name__ == "__main__":
     if alive:
         highest = max(alive, key=lambda s: ipaddress.ip_address(s))
         print(f"\nHighest live IP found: {highest}")
-else:
-    print("\nNo hosts replied.")
-
+    
     ips_to_scan = alive
     results = run_port_scan_for_ips(ips_to_scan, timeout=30, max_workers=2)
     for ip, (rc, out, err, err_msg) in results.items():
@@ -75,3 +73,8 @@ else:
             print("STDOUT:\n", out.strip())
         if err.strip():
             print("STDERR:\n", err.strip())
+
+else:
+    print("\nNo hosts replied.")
+
+    
