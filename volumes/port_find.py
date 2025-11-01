@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple, Optional
 # Hardcoded port specification
 PORT_SPEC = "1-1024,8080"
 EXECUTABLE = "tcp_sweep.py"
-TCP_SWEEP_PATH = "/home/seed/Documents/Lab5/COSC-60-Lab-5/volumes/tcp_sweep.py"
+TCP_SWEEP_PATH = "/root/volumes/tcp_sweep.py"
 
 # Type alias: (returncode, stdout, stderr, error_message)
 ScanResult = Tuple[int, str, str, Optional[str]]
