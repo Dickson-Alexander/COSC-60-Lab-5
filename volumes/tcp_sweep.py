@@ -11,51 +11,43 @@ from typing import List, Set
 MIN_PORT = 1
 MAX_PORT = 65535
 
-def syn_scan_ports(host: str, ports: List[int], timeout: float = 1.0) -> Set[int]:
+# fast_syn_scan.py (function to replace your syn_scan_ports)
+def syn_scan_ports_batch(host: str, ports: List[int], timeout: float = 2.0) -> Set[int]:
     """
-    Perform a SYN scan on `host` for the list of `ports`.
-    Returns a set of ports that responded with SYN-ACK (considered open).
+    Batch SYN scan using scapy.sr: send SYNs to all ports in one call and parse replies.
+    Returns set of open ports (SYN-ACK received).
     Requires root and scapy.
     """
     try:
-        from scapy.all import IP, TCP, sr1, send  # local import so script can be imported without scapy
+        from scapy.all import IP, TCP, sr, RandShort, conf
     except Exception as e:
-        raise RuntimeError("Scapy is required for syn_scan_ports. Install with: sudo pip3 install scapy") from e
+        raise RuntimeError("Scapy required: sudo pip3 install scapy") from e
 
-    open_ports: Set[int] = set()
+    # reduce verbosity
+    conf.verb = 0
 
-    for port in ports:
-        pkt = IP(dst=host) / TCP(dport=port, flags="S")
-        try:
-            resp = sr1(pkt, timeout=timeout, verbose=0)
-        except PermissionError as e:
-            raise PermissionError("Raw sockets require root privileges. Run the script with sudo.") from e
-        except Exception:
-            resp = None
+    # Build one packet containing many destination ports
+    pkt = IP(dst=host) / TCP(sport=RandShort(), dport=ports, flags="S")
+    # sr will send the list of packets (one per dport) and return answered/unanswered
+    ans, unans = sr(pkt, timeout=timeout)
 
-        if resp is None:
-            # no reply -> treat as closed/filtered
-            continue
-
-        # If response has TCP layer, inspect flags
-        if resp.haslayer(TCP):
-            rflags = resp.getlayer(TCP).flags
-            # check for SYN-ACK (S + A). numeric mask 0x12
-            if int(rflags) & 0x12 == 0x12:
-                open_ports.add(port)
-                # send RST to avoid completing handshake
+    open_ports = set()
+    for sent, received in ans:
+        if received.haslayer(TCP):
+            rflags = int(received.getlayer(TCP).flags)
+            # SYN-ACK -> port open
+            if (rflags & 0x12) == 0x12:
+                dport = sent.getlayer(TCP).dport
+                open_ports.add(dport)
+                # send RST to be polite
                 try:
-                    rst_pkt = IP(dst=host) / TCP(dport=port, flags="R")
-                    send(rst_pkt, verbose=0)
+                    from scapy.all import send
+                    rst = IP(dst=host) / TCP(dport=dport, sport=sent.getlayer(TCP).sport, flags="R")
+                    send(rst, verbose=0)
                 except Exception:
                     pass
-            else:
-                # RST or other flags -> closed/filtered
-                continue
-        else:
-            continue
-
     return open_ports
+
 
 def parse_port_spec(host: str, spec: str, timeout: float = 1.0) -> List[int]:
     """
@@ -111,7 +103,7 @@ def parse_port_spec(host: str, spec: str, timeout: float = 1.0) -> List[int]:
 
     # Sort and return
     sorted_ports = sorted(ports_set)
-    open_ports = syn_scan_ports(host, sorted_ports, timeout=timeout)
+    open_ports = syn_scan_ports_batch(host, sorted_ports, timeout=timeout)
     return open_ports
 
 
