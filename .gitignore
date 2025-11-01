@@ -1,0 +1,21 @@
+cat > .gitignore << 'EOF'
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Docker
+*.log
+*.tmp
+**/volumes/*
+!.keep
+
+# OS cruft
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+EOF
