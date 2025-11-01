@@ -1,11 +1,13 @@
 import subprocess
 import ipaddress
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple, Optional
 
 # Hardcoded port specification
 PORT_SPEC = "1-1024,8080"
 EXECUTABLE = "tcp_sweep.py"
+TCP_SWEEP_PATH = "/home/seed/Documents/Lab5/COSC-60-Lab-5/volumes/tcp_sweep.py"
 
 # Type alias: (returncode, stdout, stderr, error_message)
 ScanResult = Tuple[int, str, str, Optional[str]]
@@ -22,7 +24,7 @@ def _build_command(ip: str) -> List[str]:
     Build the argument list for subprocess (no shell).
     Expected CLI: port_scan <ip> "<port-spec>"
     """
-    return [EXECUTABLE, ip, PORT_SPEC]
+    return [sys.executable, TCP_SWEEP_PATH, ip, PORT_SPEC]
 
 def run_port_scan_for_ips(
     ips: List[str],
@@ -80,7 +82,7 @@ def run_port_scan_for_ips(
 if __name__ == "__main__":
     # Example usage:
     #input: ips_to_Scan should be the return of the ips available
-    ips_to_scan = ["0", "8.8.8.8"]
+    ips_to_scan = ["172.17.0.1", "8.8.8.8"]
     results = run_port_scan_for_ips(ips_to_scan, timeout=30, max_workers=2)
     for ip, (rc, out, err, err_msg) in results.items():
         print(f"\n--- {ip} (rc={rc}) ---")

@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
+
 #parse arguments; every int before a dash should be the beginning of a port RANGE,
 #every int after a dash should be the end of a port; no dash before a comma / before the end of the string
 # means a single port. commas should separate port ranges.
 #the input will be in the format "1-1024, 8080". 
 
-#!/usr/bin/env python3
 import argparse
 from typing import List, Set
 
@@ -92,3 +93,5 @@ def main():
 if __name__ == "__main__":
     main()
     
+#docker is 172.17.0.1
+
