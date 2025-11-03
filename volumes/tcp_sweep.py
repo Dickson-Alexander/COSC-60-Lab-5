@@ -13,11 +13,6 @@ MAX_PORT = 65535
 
 # fast_syn_scan.py (function to replace your syn_scan_ports)
 def syn_scan_ports_batch(host: str, ports: List[int], timeout: float = 2.0) -> Set[int]:
-    """
-    Batch SYN scan using scapy.sr: send SYNs to all ports in one call and parse replies.
-    Returns set of open ports (SYN-ACK received).
-    Requires root and scapy.
-    """
     try:
         from scapy.all import IP, TCP, sr, RandShort, conf
     except Exception as e:
@@ -50,17 +45,6 @@ def syn_scan_ports_batch(host: str, ports: List[int], timeout: float = 2.0) -> S
 
 
 def parse_port_spec(host: str, spec: str, timeout: float = 1.0) -> List[int]:
-    """
-    Parse a port specification like "1-1024, 8080" and return a sorted list
-    of unique port integers. Accepts spaces around tokens.
-    Rules:
-    - A token with a single '-' between two ints is a range: "start-end" (inclusive).
-    - A token without '-' is a single port number.
-    - Commas separate tokens.
-    - Reject malformed tokens (e.g. "-5", "5-", "3-2" (start>end), non-integer fields).
-    - Enforce port bounds MIN_PORT..MAX_PORT.
-    """
-
     if not isinstance(spec, str):
         raise TypeError("port specification must be a string")
 

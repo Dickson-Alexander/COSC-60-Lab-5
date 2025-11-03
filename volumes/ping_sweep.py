@@ -11,7 +11,6 @@ from port_find import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def ping(ip):
-    """Return True if host replies to a single ICMP ping. Uses system ping."""
     # -c 1 : one packet, -W 1 : timeout 1s (Linux)
     try:
         r = subprocess.run(["ping", "-c", "1", "-W", "1", str(ip)],

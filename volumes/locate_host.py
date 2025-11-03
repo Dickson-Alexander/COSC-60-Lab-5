@@ -12,10 +12,6 @@ def sh(*args):
     return subprocess.run(args, check=False, capture_output=True, text=True)
 
 def ensure_monitor(iface="wlan0mon", phy="wlan0"):
-    """
-    Create/enable a monitor interface 'wlan0mon' from base 'wlan0' (or whatever yours is).
-    Safe to call multiple times.
-    """
     # Best-effort: bring base down, set type monitor (or create a new iface), bring up
     sh("sudo", "ip", "link", "set", phy, "down")
     # try in-place monitor
@@ -30,7 +26,6 @@ def ensure_monitor(iface="wlan0mon", phy="wlan0"):
     return phy  # return the iface you should sniff on
 
 def restore_managed(iface="wlan0"):
-    """Try to restore managed mode after the lab."""
     sh("sudo", "ip", "link", "set", iface, "down")
     sh("sudo", "iw", iface, "set", "type", "managed")
     sh("sudo", "ip", "link", "set", iface, "up")
@@ -38,7 +33,6 @@ def restore_managed(iface="wlan0"):
 
 
 def set_channel(iface, ch: int):
-    """Set iface to channel ch (use iwconfig per lab hint)."""
     subprocess.run(["sudo", "iwconfig", iface, "channel", str(ch)], check=False)
 
     
@@ -85,10 +79,6 @@ def stop_filter(pkt):
     
 
 def locate_host(iface):
-    """
-    Hop channels 1..11 until we see CS60 beacons; track RSSI for room hunt.
-    If a Vendor IE hints a new channel, switch to it.
-    """
     global rssi, found_channel, vendor_channel
 
     channel = 1
@@ -116,10 +106,6 @@ def locate_host(iface):
 
 
 def retrieve_code(iface, netid: str):
-    """
-    On the new channel, send a Layer-2 frame to the AP with your NetID.
-    Listen for a reply frame carrying your flag and return it.
-    """
     assert ap_mac, "AP MAC unknown; run locate_host() first"
     src = get_if_hwaddr(iface)
 
@@ -161,7 +147,6 @@ def retrieve_code(iface, netid: str):
     return flag["value"]
 
 def main():
-    ""
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--iface", default="wlan0", help="monitor-mode interface (e.g., wlan0)")

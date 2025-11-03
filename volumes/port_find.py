@@ -20,10 +20,6 @@ def _validate_ip(ip: str) -> bool:
         return False
 
 def _build_command(ip: str) -> List[str]:
-    """
-    Build the argument list for subprocess (no shell).
-    Expected CLI: port_scan <ip> "<port-spec>"
-    """
     return [sys.executable, TCP_SWEEP_PATH, ip, PORT_SPEC]
 
 def run_port_scan_for_ips(
@@ -31,14 +27,6 @@ def run_port_scan_for_ips(
     timeout: Optional[float] = None,
     max_workers: int = 1
 ) -> Dict[str, ScanResult]:
-    """
-    Run the port_scan executable for each IP using subprocess.
-    - ips: list of IP addresses (strings)
-    - timeout: per-call timeout in seconds (None = no timeout)
-    - max_workers: 1 for sequential, >1 for parallel scanning with threads
-
-    Returns a dict mapping ip -> (returncode, stdout, stderr, error_message)
-    """
     cleaned_ips = []
     for ip in ips:
         if not _validate_ip(ip):
