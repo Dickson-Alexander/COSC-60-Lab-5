@@ -9,13 +9,8 @@ venv/
 # Docker
 *.log
 *.tmp
-**/volumes/*
 !.keep
 
 # OS cruft
 .DS_Store
-
-# Editor
-.vscode/
-.idea/
 EOF
