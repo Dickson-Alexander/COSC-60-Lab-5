@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
-
-#parse arguments; every int before a dash should be the beginning of a port RANGE,
-#every int after a dash should be the end of a port; no dash before a comma / before the end of the string
-# means a single port. commas should separate port ranges.
-#the input will be in the format "1-1024, 8080". 
+"""
+@Author: Dickson Alexander and Jason Peng
+"""
 
 import argparse
 from typing import List, Set
@@ -11,8 +8,10 @@ from typing import List, Set
 MIN_PORT = 1
 MAX_PORT = 65535
 
-# fast_syn_scan.py (function to replace your syn_scan_ports)
 def syn_scan_ports_batch(host: str, ports: List[int], timeout: float = 2.0) -> Set[int]:
+    """
+    Perform a SYN scan on the given host for the specified list of ports.
+    Returns a set of open ports."""
     try:
         from scapy.all import IP, TCP, sr, RandShort, conf
     except Exception as e:
@@ -26,6 +25,7 @@ def syn_scan_ports_batch(host: str, ports: List[int], timeout: float = 2.0) -> S
     # sr will send the list of packets (one per dport) and return answered/unanswered
     ans, unans = sr(pkt, timeout=timeout)
 
+    # Analyze answered packets for SYN-ACK responses
     open_ports = set()
     for sent, received in ans:
         if received.haslayer(TCP):
@@ -45,6 +45,11 @@ def syn_scan_ports_batch(host: str, ports: List[int], timeout: float = 2.0) -> S
 
 
 def parse_port_spec(host: str, spec: str, timeout: float = 1.0) -> List[int]:
+    """
+    Parse the given port specification string into a list of ports.
+    The spec can include single ports and ranges, e.g., "22,80,1000-2000".
+    """
+
     if not isinstance(spec, str):
         raise TypeError("port specification must be a string")
 
@@ -91,7 +96,6 @@ def parse_port_spec(host: str, spec: str, timeout: float = 1.0) -> List[int]:
     return open_ports
 
 
-# Small command-line example showing how to use the parser.
 def main():
     parser = argparse.ArgumentParser(description="port_scan argument parser demo (parses port ranges)")
     parser.add_argument("host", help="Target host/IP (example: 192.168.60.5)")
@@ -111,11 +115,9 @@ def main():
     else:
         print(f"First 5 ports: {ports[:5]}")
         print(f"Last 5 ports: {ports[-5:]}")
-        print(f"Example contains 8080? {'8080' in map(str, ports)}")  # just an example check
+        print(f"Example contains 8080? {'8080' in map(str, ports)}")  # just an example check for port 8080
 
 
 if __name__ == "__main__":
     main()
-    
-#docker is 172.17.0.1
 

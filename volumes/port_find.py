@@ -1,3 +1,7 @@
+"""
+@Author: Dickson Alexander and Jason Peng
+"""
+
 import subprocess
 import ipaddress
 import sys
@@ -13,6 +17,9 @@ TCP_SWEEP_PATH = "/root/volumes/tcp_sweep.py"
 ScanResult = Tuple[int, str, str, Optional[str]]
 
 def _validate_ip(ip: str) -> bool:
+    """
+    Validate the given IP address string.
+    Returns True if valid, False otherwise."""
     try:
         ipaddress.ip_address(ip)
         return True
@@ -20,6 +27,9 @@ def _validate_ip(ip: str) -> bool:
         return False
 
 def _build_command(ip: str) -> List[str]:
+    """"
+    Build the command to run the TCP sweep for the given IP.
+    Returns the command as a list of strings."""
     return [sys.executable, TCP_SWEEP_PATH, ip, PORT_SPEC]
 
 def run_port_scan_for_ips(
@@ -27,6 +37,11 @@ def run_port_scan_for_ips(
     timeout: Optional[float] = None,
     max_workers: int = 1
 ) -> Dict[str, ScanResult]:
+    """
+    Run port scans for the given list of IP addresses using tcp_sweep.py.
+    Returns a dictionary mapping IP addresses to their ScanResult."""
+
+    # Validate IPs
     cleaned_ips = []
     for ip in ips:
         if not _validate_ip(ip):
@@ -35,6 +50,7 @@ def run_port_scan_for_ips(
 
     results: Dict[str, ScanResult] = {}
 
+    # Helper to run a single scan
     def _run_single(ip: str) -> Tuple[str, ScanResult]:
         cmd = _build_command(ip)
         try:
@@ -68,8 +84,7 @@ def run_port_scan_for_ips(
 
 
 if __name__ == "__main__":
-    # Example usage:
-    #input: ips_to_Scan should be the return of the ips available
+
     ips_to_scan = ["172.17.0.1"]
     results = run_port_scan_for_ips(ips_to_scan, timeout=30, max_workers=2)
     for ip, (rc, out, err, err_msg) in results.items():

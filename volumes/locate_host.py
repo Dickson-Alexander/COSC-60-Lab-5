@@ -1,3 +1,7 @@
+"""
+@Author: Dickson Alexander and Jason Peng
+"""
+
 import subprocess, re
 import time
 from scapy.all import sniff, RadioTap, Dot11, Dot11Elt, Dot11ProbeReq, get_if_hwaddr, sendp, Dot11Beacon, Raw, LLC, SNAP
@@ -6,13 +10,21 @@ found_channel = False
 vendor_channel = None
 ap_mac = None
 
-# --- helpers ----------------------------------------------------
+# --- helpers -----------
 
 def sh(*args):
+    """
+    Run a shell command and return CompletedProcess.
+    """
     return subprocess.run(args, check=False, capture_output=True, text=True)
 
 def ensure_monitor(iface="wlan0mon", phy="wlan0"):
-    # Best-effort: bring base down, set type monitor (or create a new iface), bring up
+    """
+    Ensure that the given iface is in monitor mode.  If not, try to set it.
+    Returns the iface to use for monitoring.
+    """
+
+    # bring base down, set type monitor (or create a new iface), bring up
     sh("sudo", "ip", "link", "set", phy, "down")
     # try in-place monitor
     r = sh("sudo", "iw", phy, "set", "type", "monitor")
@@ -23,9 +35,13 @@ def ensure_monitor(iface="wlan0mon", phy="wlan0"):
         phy = iface
     sh("sudo", "ip", "link", "set", phy, "up")
     print(f"[+] Monitor mode enabled on {phy}")
-    return phy  # return the iface you should sniff on
+    return phy  
 
 def restore_managed(iface="wlan0"):
+    """
+    Restore the given iface to managed mode.
+    """
+
     sh("sudo", "ip", "link", "set", iface, "down")
     sh("sudo", "iw", iface, "set", "type", "managed")
     sh("sudo", "ip", "link", "set", iface, "up")
@@ -33,10 +49,18 @@ def restore_managed(iface="wlan0"):
 
 
 def set_channel(iface, ch: int):
+    """
+    Set the given iface to the specified channel.
+    """
     subprocess.run(["sudo", "iwconfig", iface, "channel", str(ch)], check=False)
 
     
 def process_packet(pkt):
+    """
+    Process a sniffed packet to look for CS60 beacons.
+    If found, extract RSSI, AP MAC, and vendor channel hint.
+    """
+
     global rssi, found_channel, vendor_channel, ap_mac
 
     if not (pkt.haslayer(Dot11Beacon) and pkt.haslayer(RadioTap)):
@@ -79,6 +103,9 @@ def stop_filter(pkt):
     
 
 def locate_host(iface):
+    """
+    Locate the CS60 host by scanning channels and sniffing for its beacons.
+    """
     global rssi, found_channel, vendor_channel
 
     channel = 1
@@ -98,7 +125,6 @@ def locate_host(iface):
               timeout=1.0, store=False)
 
     # If process_packet captured vendor bytes, parse channel hint
-    # You can stash vendor bytes globally there; here we just trust vendor_channel if set
     if vendor_channel is not None:
         set_channel(iface, vendor_channel)
         print(f"[+] Switched to vendor-specified channel {vendor_channel}")
@@ -109,7 +135,7 @@ def retrieve_code(iface, netid: str):
     assert ap_mac, "AP MAC unknown; run locate_host() first"
     src = get_if_hwaddr(iface)
 
-    # Build L2 802.11 data frame (to DS=0, addr1=AP, addr2=STA, addr3=AP)
+    # Build L2 802.11 data frame
     dot11 = Dot11(type=2, subtype=0, addr1=ap_mac, addr2=src, addr3=ap_mac)
     payload = Raw(netid.encode())
     frame = RadioTap()/dot11/LLC()/SNAP()/payload
@@ -155,12 +181,18 @@ def main():
 
     print("[*] Scanning for CS60 beacons…")
 
+    # Ensure monitor mode
     mon = ensure_monitor("wlan0mon", "wlan0")
+
+    # Locate the host AP by scanning channels
     locate_host(mon)
 
     print("[*] Requesting code from AP…")
+
+    # Retrieve the code using our netid
     flag = retrieve_code(mon, args.netid)
 
+    # Print the flag submission info
     if flag:
         print("\n=== FLAG SUBMISSION ===")
         print(f"Location: ECSC 019")

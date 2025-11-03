@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
-# ping_sweep.py
-# Usage:
-#   sudo python3 ping_sweep.py 192.168.60.0/24
-#   sudo python3 ping_sweep.py 192.168.60.0/24 --end 192.168.60.11
+"""
+@Author: Dickson Alexander and Jason Peng
+"""
 
 import argparse
 import ipaddress
@@ -11,6 +9,8 @@ from port_find import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def ping(ip):
+    """
+    Ping the given IP address once, return (ip, alive:bool)."""
     # -c 1 : one packet, -W 1 : timeout 1s (Linux)
     try:
         r = subprocess.run(["ping", "-c", "1", "-W", "1", str(ip)],
@@ -20,6 +20,9 @@ def ping(ip):
         return (str(ip), False)
 
 def sweep(network, end_ip=None, workers=100):
+    """
+    Sweep the given CIDR network (e.g., '192.168.60.0/24').
+    """
     hosts = []
     net = ipaddress.ip_network(network, strict=False)
     # list of host IPs to test (skips network & broadcast automatically with .hosts())
@@ -38,6 +41,7 @@ def sweep(network, end_ip=None, workers=100):
     print(f"[+] Scanning {len(all_hosts)} addresses in {net} ...")
 
     results = []
+    # Got inspiration from chatGPT for this ThreadPoolExecutor (with workers) and as_completed usage
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futures = { ex.submit(ping, ip): ip for ip in all_hosts }
         for fut in as_completed(futures):
@@ -54,8 +58,11 @@ if __name__ == "__main__":
     p.add_argument("--workers", type=int, default=100, help="concurrency")
     args = p.parse_args()
 
+    # Perform the ping sweep
     alive = sweep(args.cidr, end_ip=args.end, workers=args.workers)
     print("\n=== Live hosts ===")
+
+    # Print live hosts sorted
     for a in sorted(alive, key=ipaddress.ip_address):
         print(a)
     if alive:
@@ -63,6 +70,8 @@ if __name__ == "__main__":
         print(f"\nHighest live IP found: {highest}")
     
     ips_to_scan = alive
+
+    # Now run port scans on the live hosts
     results = run_port_scan_for_ips(ips_to_scan, timeout=30, max_workers=2)
     for ip, (rc, out, err, err_msg) in results.items():
         print(f"\n--- {ip} (rc={rc}) ---")

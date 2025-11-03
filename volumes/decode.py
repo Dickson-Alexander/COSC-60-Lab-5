@@ -1,3 +1,7 @@
+"""
+@Author: Dickson Alexander and Jason Peng
+"""
+
 import csv
 from collections import Counter
 import re
@@ -10,7 +14,7 @@ def count_letter_frequencies(text):
 
 def find_common_words(text, length):
     # Extract words (sequences of letters)
-    words = re.findall(r'[a-z]+', text.lower())
+    words = re.findall(r'[a-z]+', text.lower()) # ChatGPT was helpful coming up with this regex
     # Filter by length
     words_of_length = [w for w in words if len(w) == length]
     return Counter(words_of_length)
@@ -158,7 +162,7 @@ def save_mapping_to_csv(mapping, cipher_freq, filename):
 
 def main():
     # File paths
-    cipher_file = "../../cipher.txt"
+    cipher_file = "volumes/cipher.txt"
 
     # Read ciphertext
     print("[*] Reading ciphertext...")
